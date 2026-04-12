@@ -1,75 +1,77 @@
+import tkinter as tk
+from tkinter import ttk
 import ipaddress
 
-class RedInfo:
-    def __init__(self, nombre, red_cidr, id_subred="-"):
-        self.nombre = nombre
-        self.id_subred = str(id_subred)
-        self.red_obj = ipaddress.IPv4Network(red_cidr)
-        
-        # Extraer los datos para la tabla en formato de texto
-        self.dir_red = str(self.red_obj.network_address)
-        self.mascara = str(self.red_obj.netmask)
-        # La IP Gateway (normalmente la primera utilizable)
-        self.ip_lan = str(list(self.red_obj.hosts())[0])
+class RedApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Calculadora de Red WAN Colombia - Proyecto QA")
+        self.root.geometry("900x500")
+        self.root.configure(bg="#f0f0f0")
 
-def generar_tabla_final():
-    # Usando los datos de la topología compleja de tu imagen anterior
-    # (Ciudad, Red CIDR, ID de subred anotado en la imagen)
-    datos_lan = [
-        RedInfo("IBAGUÉ", "192.171.0.0/29", "1ra"),
-        RedInfo("PEREIRA", "192.168.28.0/23", "2da"),
-        RedInfo("MEDELLÍN", "192.169.50.0/22", "3ra"),
-        RedInfo("NEIVA", "192.170.28.0/27", "5ta"),
-        RedInfo("CALI", "192.172.40.0/26", "Últ."),
-        RedInfo("BOGOTÁ", "192.160.100.0/24", "Bog")
-    ]
+        # Título estilo Neo-brutalista (Bordes gruesos)
+        title_label = tk.Label(
+            root, text="MATRIZ DE DIRECCIONAMIENTO WAN", 
+            font=("Arial", 18, "bold"), bg="#000", fg="#fff", pady=10
+        )
+        title_label.pack(fill=tk.X, padx=10, pady=10)
 
-    # Enlaces WAN (las líneas rojas del Router central)
-    # Aquí la 'DIR IP' es la IP que le pones al router central (R0) en ese enlace
-    datos_wan = [
-        RedInfo("R0 -> BOG", "190.0.0.0/30", "W0"),
-        RedInfo("R0 -> CALI", "190.0.0.4/30", "W1"),
-        RedInfo("R0 -> IBA", "190.0.0.8/30", "W2"),
-        RedInfo("R0 -> NEI", "190.0.0.12/30", "W3"),
-        RedInfo("R0 -> MED", "190.0.0.16/30", "W4"),
-        RedInfo("R0 -> PER", "190.0.0.20/30", "W5")
-    ]
+        # Definición de datos (Basado en tu imagen de Packet Tracer)
+        self.datos = [
+            ["BOGOTÁ", "Bog", "192.160.100.0/24"],
+            ["IBAGUÉ", "1ra", "192.171.0.0/29"],
+            ["PEREIRA", "2da", "192.168.28.0/23"],
+            ["MEDELLÍN", "3ra", "192.169.50.0/22"],
+            ["NEIVA", "5ta", "192.170.28.0/27"],
+            ["CALI", "Últ.", "192.172.40.0/26"]
+        ]
 
-    # Encabezados de tabla EXACTOS a tu imagen de referencia (en mayúsculas)
-    header = f"{'ROUTER':<15} {'SUBRED':<8} {'DIR RED':<15} {'DIR IP':<15} {'MASK RED'}"
-    
-    # ------------------------------------------------------------------
-    # TABLA 1: REDES LAN (Ciudades)
-    # ------------------------------------------------------------------
-    print("-" * 75)
-    print(f"{'MATRIZ DE DIRECCIONAMIENTO LAN (CIUDADES COLOMBIA)':^75}")
-    print("-" * 75)
-    print(header)
-    print("-" * 75)
-    
-    for c in datos_lan:
-        # Se formatea para que la IP del router LAN (Gateway) se vea corta (ej. '1.1')
-        # Pero como son redes de clase C/A, pondré la IP completa para QA.
-        print(f"{c.nombre:<15} {c.id_subred:<8} {c.dir_red:<15} {c.ip_lan:<15} {c.mascara}")
-    
-    print("\n" + "="*75 + "\n")
+        self.crear_tabla()
 
-    # ------------------------------------------------------------------
-    # TABLA 2: ENLACES WAN (Conexiones de Router0)
-    # ------------------------------------------------------------------
-    print("-" * 75)
-    print(f"{'MATRIZ DE ENLACES WAN (CONEXIONES CENTRALES R0)':^75}")
-    print("-" * 75)
-    print(header)
-    print("-" * 75)
-    
-    for w in datos_wan:
-        # En la columna 'DIR IP' de WAN, mostramos la IP que le toca al Router0 (R0)
-        # La IP remota sería la siguiente utilizable.
-        print(f"{w.nombre:<15} {w.id_subred:<8} {w.dir_red:<15} {w.ip_lan:<15} {w.mascara}")
-        
-    print("-" * 75)
-    print("Nota: En la tabla WAN, 'DIR IP' es la IP de la interfaz Serial/Gigabit del Router0 (central).")
+    def crear_tabla(self):
+        # Frame para la tabla
+        frame = tk.Frame(self.root, bd=2, relief="solid")
+        frame.pack(expand=True, fill="both", padx=20, pady=20)
+
+        # Configuración de estilo de la tabla
+        style = ttk.Style()
+        style.configure("Treeview.Heading", font=("Arial", 10, "bold"))
+        style.configure("Treeview", rowheight=30, font=("Arial", 10))
+
+        # Columnas según tu dibujo
+        columns = ("router", "subred", "dir_red", "dir_ip", "mask_red")
+        self.tree = ttk.Treeview(frame, columns=columns, show="headings")
+
+        self.tree.heading("router", text="ROUTER")
+        self.tree.heading("subred", text="SUBRED")
+        self.tree.heading("dir_red", text="DIR RED")
+        self.tree.heading("dir_ip", text="DIR IP (Gateway)")
+        self.tree.heading("mask_red", text="MASK RED")
+
+        # Ajuste de ancho de columnas
+        for col in columns:
+            self.tree.column(col, anchor="center", width=150)
+
+        # Insertar datos calculados
+        for item in self.datos:
+            net = ipaddress.IPv4Network(item[2])
+            dir_red = str(net.network_address)
+            dir_ip = str(list(net.hosts())[0]) # Gateway
+            mask_red = str(net.netmask)
+            
+            self.tree.insert("", tk.END, values=(item[0], item[1], dir_red, dir_ip, mask_red))
+
+        self.tree.pack(expand=True, fill="both")
+
+        # Botón de salida
+        btn_salir = tk.Button(
+            self.root, text="CERRAR", command=self.root.quit,
+            bg="#ff4d4d", fg="white", font=("Arial", 10, "bold"), 
+            bd=3, relief="raised", padx=20
+        )
+        btn_salir.pack(pady=10)
 
 if __name__ == "__main__":
-    generar_tabla_final()
+    root = tk.Tk()
+    app = RedApp(root)
+    root.mainloop()
